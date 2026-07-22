@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Parts{% endblock %} · FTC Parts</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='pico.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='custom.css') }}">
+  <script>
+    (function () {
+      const theme = localStorage.getItem("theme");
+      if (theme) document.documentElement.setAttribute("data-theme", theme);
+    })();
+  </script>
+</head>
+<body>
+  <nav class="container">
+    <ul>
+      <li><strong><a href="{{ url_for('parts.index') }}">PMS</a></strong></li>
+    </ul>
+    {% if current_user.is_authenticated %}
+    <ul id="nav-links" style="align-content: end">
+      <li><a href="{{ url_for('parts.index') }}">Search</a></li>
+      <li><a href="{{ url_for('boxes.index') }}">Boxes</a></li>
+      {% if current_user.is_admin %}
+      <li><a href="{{ url_for('admin.log') }}">Log</a></li>
+      <li><a href="{{ url_for('admin.users') }}">Users</a></li>
+      <li><a href="{{ url_for('admin.mcp_info') }}">MCP</a></li>
+      {% endif %}
+      <li><a href="{{ url_for('auth.logout') }}">Logout ({{ current_user.full_name }})</a></li>
+    </ul>
+    {% endif %}
+    <ul class="nav-controls">
+      {% if current_user.is_authenticated %}
+      <li>
+        <button id="nav-toggle" type="button" class="secondary outline" aria-label="Open menu" aria-expanded="false" aria-controls="nav-links">Menu</button>
+      </li>
+      {% endif %}
+      <li><button id="theme-toggle" type="button" class="secondary outline">Dark</button></li>
+    </ul>
+  </nav>
+  <main class="container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <article class="{{ 'error' if category == 'error' else category }}">{{ message }}</article>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+  <script src="{{ url_for('static', filename='theme.js') }}"></script>
+  <script src="{{ url_for('static', filename='nav.js') }}"></script>
+</body>
+</html>

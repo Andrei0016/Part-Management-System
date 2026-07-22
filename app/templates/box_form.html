@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit box' if box else 'Register box' }}{% endblock %}
+{% block content %}
+<h2>{{ 'Edit ' + box.box_id if box else 'Register a new box' }}</h2>
+
+<form method="post">
+  {% if not box %}
+  <label>Box ID
+    <input type="text" name="box_id" required value="{{ form.box_id if form else '' }}">
+  </label>
+  {% endif %}
+  <label>Shelf
+    <input type="text" name="shelf" required value="{{ (form.shelf if form else None) or (box.shelf if box else '') }}">
+  </label>
+  <label>Row
+    <input type="text" name="row" required value="{{ (form.row if form else None) or (box.row if box else '') }}">
+  </label>
+  <button type="submit">{{ 'Save changes' if box else 'Register box' }}</button>
+</form>
+{% endblock %}

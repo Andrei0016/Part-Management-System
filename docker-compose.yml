@@ -1,0 +1,27 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file: .env
+    environment:
+      DATABASE_URL: sqlite:////app/instance/parts.db
+    volumes:
+      - ./instance:/app/instance
+      - ./credentials:/run/secrets:ro
+    ports:
+      - "5000:5000"
+    restart: unless-stopped
+
+  mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile.mcp
+    env_file: .env
+    environment:
+      PMS_API_BASE_URL: http://web:5000
+    depends_on:
+      - web
+    ports:
+      - "8000:8000"
+    restart: unless-stopped

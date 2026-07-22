@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}MCP server{% endblock %}
+{% block content %}
+<h2>MCP server</h2>
+
+{% if not api_token %}
+<article class="error">
+  API_TOKEN is not set — the internal API rejects all requests and the MCP server cannot make any calls.
+</article>
+{% endif %}
+
+<h3>Connection</h3>
+<div class="table-wrap">
+<table>
+  <tbody>
+    <tr><th scope="row">Internal API base URL</th><td>{{ api_base_url }}</td></tr>
+    <tr><th scope="row">MCP server listens on</th><td>{{ mcp_host }}:{{ mcp_port }} (Streamable-HTTP)</td></tr>
+    <tr>
+      <th scope="row">API token</th>
+      <td>
+        <code id="api-token" data-token="{{ api_token }}">{{ '•' * 24 if api_token else '(not set)' }}</code>
+        {% if api_token %}
+        <button type="button" id="token-toggle" class="secondary outline">Show</button>
+        <button type="button" id="token-copy" class="secondary outline">Copy</button>
+        {% endif %}
+      </td>
+    </tr>
+  </tbody>
+</table>
+</div>
+<p><small>To rotate this token, run <code>docker compose exec web flask regenerate-api-token</code>, copy the printed value into <code>API_TOKEN</code> in <code>.env</code>, then restart both containers.</small></p>
+
+<h3>Attribution</h3>
+<div class="table-wrap">
+<table>
+  <tbody>
+    <tr><th scope="row">System user</th><td>{{ mcp_user.username if mcp_user else '(not seeded yet)' }}</td></tr>
+    <tr><th scope="row">Display name</th><td>{{ mcp_user.full_name if mcp_user else '' }}</td></tr>
+  </tbody>
+</table>
+</div>
+<p><small>Every write made through MCP is logged in the <a href="{{ url_for('admin.log') }}">activity log</a> under this user, regardless of which human is talking to Claude.</small></p>
+
+<h3>Google Sheets sync</h3>
+<div class="table-wrap">
+<table>
+  <tbody>
+    <tr><th scope="row">Pending changes</th><td>{{ 'Yes' if sync_state.dirty else 'No' }}</td></tr>
+    <tr><th scope="row">Last synced</th><td>{{ sync_state.last_synced_at.strftime('%Y-%m-%d %H:%M UTC') if sync_state.last_synced_at else 'Never' }}</td></tr>
+  </tbody>
+</table>
+</div>
+
+<script>
+  (function () {
+    var tokenEl = document.getElementById("api-token");
+    if (!tokenEl) return;
+    var toggle = document.getElementById("token-toggle");
+    var copy = document.getElementById("token-copy");
+    var real = tokenEl.dataset.token;
+    var masked = tokenEl.textContent;
+    var shown = false;
+
+    toggle.addEventListener("click", function () {
+      shown = !shown;
+      tokenEl.textContent = shown ? real : masked;
+      toggle.textContent = shown ? "Hide" : "Show";
+    });
+
+    copy.addEventListener("click", function () {
+      navigator.clipboard.writeText(real).then(function () {
+        copy.textContent = "Copied!";
+        setTimeout(function () { copy.textContent = "Copy"; }, 1500);
+      });
+    });
+  })();
+</script>
+{% endblock %}

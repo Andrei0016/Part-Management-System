@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}{{ part.name }}{% endblock %}
+{% block content %}
+<hgroup>
+  <h2>{{ part.name }}</h2>
+  <h3>{{ part.id }}</h3>
+</hgroup>
+
+<p>
+  Location: box <a href="{{ url_for('boxes.detail', box_id=part.box_id) }}">{{ part.box_id }}</a>
+  — shelf {{ part.box.shelf }}, row {{ part.box.row }}
+</p>
+
+<p>
+  Quantity: <strong class="{{ 'low-stock' if part.is_low_stock else '' }}">{{ part.quantity }}</strong>
+  (minimum {{ part.minimum_quantity }})
+  {% if part.is_low_stock %}<span class="low-stock">— LOW STOCK</span>{% endif %}
+</p>
+
+<p>
+  {% for t in part.tag_list %}<span class="tag-pill">{{ t }}</span>{% endfor %}
+</p>
+
+<div class="grid">
+  <form method="post" action="{{ url_for('parts.adjust', part_id=part.id) }}">
+    <input type="hidden" name="action" value="take">
+    <label>Take
+      <input type="number" name="amount" min="1" required>
+    </label>
+    <button type="submit">Take stock</button>
+  </form>
+
+  <form method="post" action="{{ url_for('parts.adjust', part_id=part.id) }}">
+    <input type="hidden" name="action" value="add">
+    <label>Add
+      <input type="number" name="amount" min="1" required>
+    </label>
+    <button type="submit" class="secondary">Add stock</button>
+  </form>
+</div>
+
+{% if current_user.is_admin %}
+<p><a href="{{ url_for('parts.edit', part_id=part.id) }}" role="button" class="secondary">Edit part</a></p>
+{% endif %}
+{% endblock %}

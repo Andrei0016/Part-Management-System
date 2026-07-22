@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Boxes{% endblock %}
+{% block content %}
+<h2>Boxes</h2>
+
+{% if current_user.is_admin %}
+<p><a href="{{ url_for('boxes.new_box') }}" role="button">+ Register box</a></p>
+{% endif %}
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Box ID</th><th>Shelf</th><th>Row</th><th># Parts</th></tr></thead>
+  <tbody>
+    {% for box in boxes %}
+    <tr>
+      <td><a href="{{ url_for('boxes.detail', box_id=box.box_id) }}">{{ box.box_id }}</a></td>
+      <td>{{ box.shelf }}</td>
+      <td>{{ box.row }}</td>
+      <td>{{ box.parts|length }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="4">No boxes registered yet.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

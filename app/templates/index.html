@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Search{% endblock %}
+{% block content %}
+
+<form method="get" role="search">
+  <input type="search" name="q" placeholder="Search parts by name or id..." value="{{ query }}">
+  {% if tag %}<input type="hidden" name="tag" value="{{ tag }}">{% endif %}
+  <button type="submit">Search</button>
+</form>
+
+{% if tags %}
+<p>
+  Categories:
+  {% for t in tags %}
+    <a class="tag-pill" href="{{ url_for('parts.index', tag=t, q=query) }}">{{ t }}</a>
+  {% endfor %}
+  {% if tag %}<a href="{{ url_for('parts.index', q=query) }}">(clear category)</a>{% endif %}
+</p>
+{% endif %}
+
+{% if current_user.is_admin %}
+<p><a href="{{ url_for('parts.new_part') }}" role="button">+ Register part</a></p>
+{% endif %}
+
+{% if low_stock %}
+<article class="warning">
+  <strong>Low stock:</strong>
+  {% for p in low_stock %}
+    <a href="{{ url_for('parts.detail', part_id=p.id) }}">{{ p.name }} ({{ p.quantity }}/{{ p.minimum_quantity }})</a>{% if not loop.last %}, {% endif %}
+  {% endfor %}
+</article>
+{% endif %}
+
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr><th>ID</th><th>Name</th><th>Box</th><th>Location</th><th>Qty</th><th>Tags</th></tr>
+  </thead>
+  <tbody>
+    {% for part in parts %}
+    <tr>
+      <td><a href="{{ url_for('parts.detail', part_id=part.id) }}">{{ part.id }}</a></td>
+      <td>{{ part.name }}</td>
+      <td>{{ part.box_id }}</td>
+      <td>{{ part.box.shelf }} / {{ part.box.row }}</td>
+      <td><span class="{{ 'low-stock' if part.is_low_stock else '' }}">{{ part.quantity }}</span></td>
+      <td>
+        {% for t in part.tag_list %}<span class="tag-pill">{{ t }}</span>{% endfor %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6">No parts found.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

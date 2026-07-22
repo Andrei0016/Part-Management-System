@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit user' if edit_user else 'New user' }}{% endblock %}
+{% block content %}
+<h2>{{ 'Edit user' if edit_user else 'New user' }}{% if edit_user and not edit_user.is_active %} <small>(inactive)</small>{% endif %}</h2>
+<form method="post">
+  <label>Username
+    <input type="text" name="username" required
+      value="{{ form.username if form else (edit_user.username if edit_user else '') }}">
+  </label>
+  <label>Full name
+    <input type="text" name="full_name" required
+      value="{{ form.full_name if form else (edit_user.full_name if edit_user else '') }}">
+  </label>
+  <label>Password{% if edit_user %} (leave blank to keep current){% endif %}
+    <input type="password" name="password" {{ 'required' if not edit_user else '' }}>
+  </label>
+  <label>
+    <input type="checkbox" name="is_admin"
+      {{ 'checked' if (form and form.is_admin == 'on') or (not form and edit_user and edit_user.is_admin) }}>
+    Admin
+  </label>
+  <button type="submit">{{ 'Save changes' if edit_user else 'Create user' }}</button>
+</form>
+{% if edit_user and edit_user.id != current_user.id %}
+  {% if edit_user.is_active %}
+    <form method="post" action="{{ url_for('admin.deactivate_user', user_id=edit_user.id) }}" style="margin: 0;">
+      <button type="submit" id="delete-user-btn" class="outline contrast"
+        data-label="Deactivate" data-confirm-label="Press again to confirm">Deactivate</button>
+    </form>
+  {% else %}
+    <form method="post" action="{{ url_for('admin.reactivate_user', user_id=edit_user.id) }}" style="margin: 0;">
+      <button type="submit" class="outline">Reactivate</button>
+    </form>
+  {% endif %}
+{% endif %}
+<script>
+  (function () {
+    var btn = document.getElementById("delete-user-btn");
+    if (!btn) return;
+
+    var armed = false;
+    var resetTimer = null;
+
+    function disarm() {
+      armed = false;
+      btn.textContent = btn.dataset.label;
+      btn.classList.remove("armed");
+      clearTimeout(resetTimer);
+    }
+
+    btn.addEventListener("click", function (e) {
+      if (armed) return;
+      e.preventDefault();
+      armed = true;
+      btn.textContent = btn.dataset.confirmLabel;
+      btn.classList.add("armed");
+      resetTimer = setTimeout(disarm, 4000);
+    });
+  })();
+</script>
+{% endblock %}

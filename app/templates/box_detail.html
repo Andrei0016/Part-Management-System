@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Box {{ box.box_id }}{% endblock %}
+{% block content %}
+<h2>Box {{ box.box_id }}</h2>
+<p>Shelf {{ box.shelf }}, row {{ box.row }}</p>
+
+{% if current_user.is_admin %}
+<p><a href="{{ url_for('boxes.edit', box_id=box.box_id) }}" role="button" class="secondary">Edit box</a></p>
+{% endif %}
+
+<h3>Parts in this box</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>ID</th><th>Name</th><th>Qty</th><th>Tags</th></tr></thead>
+  <tbody>
+    {% for part in box.parts %}
+    <tr>
+      <td><a href="{{ url_for('parts.detail', part_id=part.id) }}">{{ part.id }}</a></td>
+      <td>{{ part.name }}</td>
+      <td><span class="{{ 'low-stock' if part.is_low_stock else '' }}">{{ part.quantity }}</span></td>
+      <td>{% for t in part.tag_list %}<span class="tag-pill">{{ t }}</span>{% endfor %}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="4">No parts in this box yet.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

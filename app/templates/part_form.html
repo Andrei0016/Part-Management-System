@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit part' if part else 'Register part' }}{% endblock %}
+{% block content %}
+<h2>{{ 'Edit ' + part.id if part else 'Register a new part' }}</h2>
+
+<form method="post">
+  {% if not part %}
+  <label>Part ID (format box_id-part_id, e.g. 001-001)
+    <input type="text" name="id" required value="{{ form.id if form else '' }}">
+  </label>
+  <label>Box
+    <select name="box_id" required>
+      <option value="">Select a box...</option>
+      {% for box in boxes %}
+      <option value="{{ box.box_id }}" {{ 'selected' if form and form.box_id == box.box_id }}>
+        {{ box.box_id }} (shelf {{ box.shelf }}, row {{ box.row }})
+      </option>
+      {% endfor %}
+    </select>
+  </label>
+  {% endif %}
+
+  <label>Name
+    <input type="text" name="name" required value="{{ (form.name if form else None) or (part.name if part else '') }}">
+  </label>
+  <label>Quantity
+    <input type="number" name="quantity" min="0" required value="{{ (form.quantity if form else None) or (part.quantity if part else 0) }}">
+  </label>
+  <label>Minimum quantity
+    <input type="number" name="minimum_quantity" min="0" required value="{{ (form.minimum_quantity if form else None) or (part.minimum_quantity if part else 0) }}">
+  </label>
+  <label>Tags (comma-separated)
+    <input type="text" name="tags" value="{{ (form.tags if form else None) or (part.tags if part else '') }}">
+  </label>
+
+  <button type="submit">{{ 'Save changes' if part else 'Register part' }}</button>
+</form>
+{% endblock %}

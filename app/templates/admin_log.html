@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Activity log{% endblock %}
+{% block content %}
+<h2>Activity log</h2>
+
+<form method="post" action="{{ url_for('admin.sync_now') }}">
+  <button type="submit" class="secondary">Sync to Google Sheets now</button>
+</form>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Time (UTC)</th><th>User</th><th>Action</th><th>Part</th><th>Qty change</th><th>Note</th></tr></thead>
+  <tbody>
+    {% for entry in entries %}
+    <tr>
+      <td>{{ entry.timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
+      <td>{{ entry.user.full_name }}</td>
+      <td>{{ entry.action }}</td>
+      <td>{% if entry.part_id %}<a href="{{ url_for('parts.detail', part_id=entry.part_id) }}">{{ entry.part_id }}</a>{% endif %}</td>
+      <td>{{ entry.quantity_delta if entry.quantity_delta is not none else '' }}</td>
+      <td>{{ entry.note or '' }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6">No activity yet.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}
