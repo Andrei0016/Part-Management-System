@@ -5,3 +5,4 @@ __pycache__/
 instance/
 credentials/
 .env
+CLAUDE.md
