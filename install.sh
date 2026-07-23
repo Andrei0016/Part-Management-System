@@ -114,11 +114,19 @@ if [ "$SKIP_FETCH" -eq 0 ]; then
   TMP_TARBALL="$(mktemp -t pms-src.XXXXXX.tar.gz)"
   trap 'rm -f "$TMP_TARBALL"' EXIT
   wget -q -O "$TMP_TARBALL" "$TARBALL_URL" || die "Failed to download $TARBALL_URL"
-  # --unlink-first: when re-fetching in place, this overwrites install.sh
-  # itself while it's running. Unlinking before writing gives the new
-  # content a fresh inode, so bash keeps reading the old (still-open) one
-  # to EOF instead of reading a half-written file out from under itself.
-  tar --unlink-first -xzf "$TMP_TARBALL" -C "$INSTALL_DIR" --strip-components=1
+  tar -xzf "$TMP_TARBALL" -C "$INSTALL_DIR" --strip-components=1 --exclude=install.sh
+
+  # install.sh is handled separately: when re-fetching in place, this is the
+  # script currently running. Extracting it to a temp file and mv-ing it
+  # into place (unlink+rename) gives the new content a fresh inode, so bash
+  # keeps reading the old (still-open) one to EOF instead of reading a
+  # half-written file out from under itself. A plain overwrite works fine
+  # for everything else, so only install.sh needs this treatment.
+  TMP_INSTALL_SH="$(mktemp -t pms-install.XXXXXX.sh)"
+  tar -xzf "$TMP_TARBALL" -O --wildcards '*/install.sh' > "$TMP_INSTALL_SH"
+  mv "$TMP_INSTALL_SH" "$INSTALL_DIR/install.sh"
+  chmod +x "$INSTALL_DIR/install.sh"
+
   rm -f "$TMP_TARBALL"
   trap - EXIT
 
