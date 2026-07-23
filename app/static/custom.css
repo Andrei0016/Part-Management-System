@@ -43,7 +43,7 @@ article.warning { border-left: 4px solid #e67e22; }
   word-break: break-all;
 }
 
-#delete-user-btn.armed {
+.confirm-btn.armed {
   background: #c0392b;
   border-color: #c0392b;
   color: #fff;

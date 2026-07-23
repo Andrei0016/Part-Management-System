@@ -75,6 +75,14 @@ def edit_part(part: Part, name, quantity, minimum_quantity, tags, user):
     return part
 
 
+def delete_part(part: Part, user):
+    part_id = part.id
+    log_action(user, action="delete", part_id=part_id, note=f"Deleted part '{part.name}'")
+    db.session.delete(part)
+    SyncState.mark_dirty()
+    db.session.commit()
+
+
 def register_box(box_id, shelf, row, user):
     if Box.query.get(box_id) is not None:
         raise ServiceError(f"Box '{box_id}' already exists.")
@@ -93,6 +101,16 @@ def edit_box(box: Box, shelf, row, user):
     SyncState.mark_dirty()
     db.session.commit()
     return box
+
+
+def delete_box(box: Box, user):
+    if box.parts:
+        raise ServiceError(f"Box '{box.box_id}' is not empty — remove its parts first.")
+    box_id = box.box_id
+    log_action(user, action="delete", note=f"Deleted box '{box_id}'")
+    db.session.delete(box)
+    SyncState.mark_dirty()
+    db.session.commit()
 
 
 def search_parts(query=None, tag=None):

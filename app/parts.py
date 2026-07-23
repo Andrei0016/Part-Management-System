@@ -7,6 +7,7 @@ from app.services import (
     ServiceError,
     adjust_stock,
     all_tags,
+    delete_part,
     edit_part,
     low_stock_parts,
     register_part,
@@ -120,3 +121,12 @@ def edit(part_id):
         return redirect(url_for("parts.detail", part_id=part_id))
 
     return render_template("part_form.html", boxes=boxes, part=part, form=None)
+
+
+@parts_bp.route("/parts/<part_id>/delete", methods=["POST"])
+@admin_required
+def delete(part_id):
+    part = Part.query.get_or_404(part_id)
+    delete_part(part, current_user)
+    flash(f"Part '{part_id}' deleted.", "success")
+    return redirect(url_for("parts.index"))

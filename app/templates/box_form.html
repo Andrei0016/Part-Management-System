@@ -17,4 +17,14 @@
   </label>
   <button type="submit">{{ 'Save changes' if box else 'Register box' }}</button>
 </form>
+{% if box %}
+  {% if box.parts %}
+  <p><small>This box still has parts in it — remove them before it can be deleted.</small></p>
+  {% else %}
+  <form method="post" action="{{ url_for('boxes.delete', box_id=box.box_id) }}" style="margin-top: 1rem;">
+    <button type="submit" class="outline contrast confirm-btn"
+      data-confirm-label="Press again to confirm">Delete box</button>
+  </form>
+  {% endif %}
+{% endif %}
 {% endblock %}

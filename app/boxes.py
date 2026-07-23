@@ -3,7 +3,7 @@ from flask_login import current_user, login_required
 
 from app.auth import admin_required
 from app.models import Box
-from app.services import ServiceError, edit_box, register_box
+from app.services import ServiceError, delete_box, edit_box, register_box
 
 boxes_bp = Blueprint("boxes", __name__)
 
@@ -63,3 +63,16 @@ def edit(box_id):
         return redirect(url_for("boxes.detail", box_id=box_id))
 
     return render_template("box_form.html", box=box, form=None)
+
+
+@boxes_bp.route("/boxes/<box_id>/delete", methods=["POST"])
+@admin_required
+def delete(box_id):
+    box = Box.query.get_or_404(box_id)
+    try:
+        delete_box(box, current_user)
+        flash(f"Box '{box_id}' deleted.", "success")
+        return redirect(url_for("boxes.index"))
+    except ServiceError as e:
+        flash(str(e), "error")
+        return redirect(url_for("boxes.edit", box_id=box_id))
