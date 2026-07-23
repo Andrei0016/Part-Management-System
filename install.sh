@@ -6,11 +6,16 @@
 # you through creating the first admin user.
 #
 # Subsequent runs: re-fetches the latest code and rebuilds the containers,
-# leaving your .env, database, and Sheets credentials untouched.
+# leaving your .env, database, and Sheets credentials untouched. This is
+# true whether you re-run the piped command or run install.sh in place from
+# an already-extracted copy (e.g. `cd /opt/pms && bash install.sh`) — both
+# re-download. The only case that's left alone is a real `git` checkout
+# (a `.git` directory next to install.sh), where you're expected to manage
+# updates yourself with `git pull`.
 #
 # Usage:
 #   wget -qO- https://raw.githubusercontent.com/Andrei0016/Part-Management-System/master/install.sh | bash
-#   # or, from an already-cloned/extracted copy:
+#   # or, from an already-extracted copy (re-fetches in place):
 #   bash install.sh
 #
 # Override the install directory with PMS_DIR=/some/path.
@@ -38,12 +43,20 @@ INSTALL_DIR="${PMS_DIR:-pms}"
 log()  { printf '\n==> %s\n' "$1"; }
 die()  { printf '\nERROR: %s\n' "$1" >&2; exit 1; }
 
-# --- 0. If we're already sitting inside a checked-out copy of the repo,
-#        operate in place instead of fetching into a subdirectory. -----------
+# --- 0. If we're already sitting inside a checked-out/extracted copy of the
+#        repo, operate in place instead of fetching into a subdirectory. A
+#        real `git` checkout (.git present) is left alone — you're expected
+#        to `git pull` it yourself. A plain extracted copy (e.g. a previous
+#        run of this script) still gets re-fetched, just in place rather
+#        than into a subdirectory. ------------------------------------------
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-.}")" 2>/dev/null && pwd || pwd)"
 if [ -f "$SCRIPT_DIR/docker-compose.yml" ] && [ -f "$SCRIPT_DIR/wsgi.py" ]; then
   INSTALL_DIR="$SCRIPT_DIR"
-  SKIP_FETCH=1
+  if [ -d "$SCRIPT_DIR/.git" ]; then
+    SKIP_FETCH=1
+  else
+    SKIP_FETCH=0
+  fi
 else
   SKIP_FETCH=0
 fi
@@ -101,7 +114,11 @@ if [ "$SKIP_FETCH" -eq 0 ]; then
   TMP_TARBALL="$(mktemp -t pms-src.XXXXXX.tar.gz)"
   trap 'rm -f "$TMP_TARBALL"' EXIT
   wget -q -O "$TMP_TARBALL" "$TARBALL_URL" || die "Failed to download $TARBALL_URL"
-  tar -xzf "$TMP_TARBALL" -C "$INSTALL_DIR" --strip-components=1
+  # --unlink-first: when re-fetching in place, this overwrites install.sh
+  # itself while it's running. Unlinking before writing gives the new
+  # content a fresh inode, so bash keeps reading the old (still-open) one
+  # to EOF instead of reading a half-written file out from under itself.
+  tar --unlink-first -xzf "$TMP_TARBALL" -C "$INSTALL_DIR" --strip-components=1
   rm -f "$TMP_TARBALL"
   trap - EXIT
 

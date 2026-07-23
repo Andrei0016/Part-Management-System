@@ -38,8 +38,12 @@ This single command:
 Override the install directory with `PMS_DIR=/opt/pms wget -qO- ... | bash`.
 
 If you already have a local clone or extracted copy, you can run the same
-script in place instead: `bash install.sh` (it detects it's already inside
-the project and skips the download step).
+script in place instead: `bash install.sh`. It detects it's already inside
+the project and reuses the current directory rather than fetching into a
+subdirectory — but it still re-fetches the latest code (same as the piped
+form), unless the directory is a real `git` checkout (a `.git` folder next
+to `install.sh`), in which case it's left alone and you're expected to
+`git pull` updates yourself.
 
 Once it's up:
 
