@@ -14,6 +14,18 @@
 #   bash install.sh
 #
 # Override the install directory with PMS_DIR=/some/path.
+
+# Re-exec under bash if launched via another shell (e.g. `sh install.sh`,
+# which on Debian/Raspberry Pi OS runs dash — no `set -o pipefail` there).
+if [ -z "${BASH_VERSION:-}" ]; then
+  if command -v bash >/dev/null 2>&1; then
+    exec bash "$0" "$@"
+  else
+    echo "ERROR: this script requires bash. Install it (e.g. 'sudo apt-get install -y bash') and re-run." >&2
+    exit 1
+  fi
+fi
+
 set -euo pipefail
 
 REPO_OWNER="Andrei0016"
@@ -144,7 +156,7 @@ dc up -d --build
 log "Waiting for the web service to become ready"
 READY=0
 for _ in $(seq 1 30); do
-  if wget -q -O /dev/null http://localhost:5000/login 2>/dev/null; then
+  if wget -q -T 5 -t 1 -O /dev/null http://localhost:5000/login 2>/dev/null; then
     READY=1
     break
   fi
@@ -152,6 +164,10 @@ for _ in $(seq 1 30); do
 done
 
 if [ "$READY" -ne 1 ]; then
+  echo >&2
+  echo "---- last 50 lines of 'docker compose logs web' ----" >&2
+  dc logs --tail=50 web >&2 || true
+  echo "------------------------------------------------------" >&2
   die "Timed out waiting for the web service. Check: (cd '$INSTALL_DIR' && docker compose logs web)"
 fi
 echo "Web service is up: http://localhost:5000"
