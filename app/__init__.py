@@ -7,7 +7,7 @@ from sqlalchemy import event
 from sqlalchemy.engine import Engine
 
 from app.config import Config
-from app.extensions import db, login_manager
+from app.extensions import csrf, db, login_manager
 
 
 def create_app(config_object=Config):
@@ -18,6 +18,7 @@ def create_app(config_object=Config):
 
     db.init_app(app)
     login_manager.init_app(app)
+    csrf.init_app(app)
 
     from app.models import User
 
@@ -36,6 +37,7 @@ def create_app(config_object=Config):
     app.register_blueprint(boxes_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(api_bp)
+    csrf.exempt(api_bp)  # token-authed, not session/cookie-based — CSRF doesn't apply
 
     register_cli(app)
 

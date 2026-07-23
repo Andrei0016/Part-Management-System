@@ -4,6 +4,7 @@
 <h2>{{ 'Edit ' + box.box_id if box else 'Register a new box' }}</h2>
 
 <form method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   {% if not box %}
   <label>Box ID
     <input type="text" name="box_id" required value="{{ form.box_id if form else '' }}">
@@ -22,6 +23,7 @@
   <p><small>This box still has parts in it — remove them before it can be deleted.</small></p>
   {% else %}
   <form method="post" action="{{ url_for('boxes.delete', box_id=box.box_id) }}" style="margin-top: 1rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <button type="submit" class="outline contrast confirm-btn"
       data-confirm-label="Press again to confirm">Delete box</button>
   </form>

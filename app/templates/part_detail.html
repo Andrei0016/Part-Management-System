@@ -23,6 +23,7 @@
 
 <div class="grid">
   <form method="post" action="{{ url_for('parts.adjust', part_id=part.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="action" value="take">
     <label>Take
       <input type="number" name="amount" min="1" required>
@@ -31,6 +32,7 @@
   </form>
 
   <form method="post" action="{{ url_for('parts.adjust', part_id=part.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="action" value="add">
     <label>Add
       <input type="number" name="amount" min="1" required>

@@ -4,6 +4,9 @@ import os
 class Config:
     SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-key-change-me")
 
+    # Displayed as the browser tab title and the nav-bar brand in the UI.
+    SITE_TITLE = os.environ.get("SITE_TITLE", "PMS")
+
     _default_db_path = os.path.join(os.getcwd(), "instance", "parts.db")
     SQLALCHEMY_DATABASE_URI = os.environ.get(
         "DATABASE_URL", f"sqlite:///{_default_db_path}"
