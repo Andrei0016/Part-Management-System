@@ -20,6 +20,12 @@
       {{ 'checked' if (form and form.is_admin == 'on') or (not form and edit_user and edit_user.is_admin) }}>
     Admin
   </label>
+  <label>
+    <input type="checkbox" name="is_editor"
+      {{ 'checked' if (form and (form.is_editor == 'on' or form.is_admin == 'on'))
+        or (not form and edit_user and (edit_user.is_editor or edit_user.is_admin)) }}>
+    Editor
+  </label>
   <button type="submit">{{ 'Save changes' if edit_user else 'Create user' }}</button>
 </form>
 {% if edit_user and edit_user.id != current_user.id %}

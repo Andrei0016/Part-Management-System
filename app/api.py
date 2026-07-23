@@ -1,12 +1,13 @@
-"""Internal JSON API used by the MCP server container.
+"""Internal JSON API used by the MCP server and any other integration.
 
-Token-authed, not exposed to end users. All writes are attributed to the
-seeded MCP system user so the activity log always shows who (a human, via
-the web UI, or Claude via MCP) made a change.
+Token-authed, not exposed to end users. Every key is expected to have a real
+owner (see /admin/api-keys) so the activity log shows who actually made a
+change, whether that was through the web UI or through a key-holding client.
 """
-from flask import Blueprint, current_app, jsonify, request
+from flask import Blueprint, g, jsonify, request
 
-from app.models import Box, Part, User
+from app.api_keys import verify_api_key
+from app.models import Box, Part
 from app.services import (
     ServiceError,
     adjust_stock,
@@ -20,20 +21,30 @@ from app.services import (
 
 api_bp = Blueprint("api", __name__, url_prefix="/api")
 
+# Sanity bound for stock adjustments — SQLite's INTEGER column is 64-bit, but
+# Python ints are arbitrary precision, so a huge value raises an uncaught
+# OverflowError deep in the DBAPI layer instead of failing validation cleanly.
+MAX_STOCK_AMOUNT = 1_000_000_000
+
 
 @api_bp.before_request
 def require_token():
-    expected = current_app.config.get("API_TOKEN")
-    if not expected:
-        return jsonify(error="API is disabled: API_TOKEN is not configured"), 503
     provided = request.headers.get("Authorization", "")
-    if provided != f"Bearer {expected}":
+    prefix = "Bearer "
+    if not provided.startswith(prefix):
         return jsonify(error="Unauthorized"), 401
+    key = verify_api_key(provided[len(prefix):])
+    if key is None:
+        return jsonify(error="Unauthorized"), 401
+    g.api_key = key
 
 
-def _mcp_actor():
-    username = current_app.config["MCP_USER_USERNAME"]
-    return User.query.filter_by(username=username).first()
+def _key_owner():
+    """Who a write is attributed to. May be None (e.g. the bootstrap key
+    before anyone's replaced it) — log_action() records that as-is rather
+    than falling back to any shared account."""
+    key = getattr(g, "api_key", None)
+    return key.owner if key is not None else None
 
 
 def _part_json(part: Part):
@@ -86,12 +97,19 @@ def adjust_part_stock(part_id):
     amount = data.get("amount")
     note = data.get("note")
 
-    if action not in ("take", "add") or not isinstance(amount, int) or amount <= 0:
-        return jsonify(error="Provide action ('take'/'add') and a positive integer amount"), 400
+    if (
+        action not in ("take", "add")
+        or not isinstance(amount, int)
+        or isinstance(amount, bool)
+        or not (0 < amount <= MAX_STOCK_AMOUNT)
+    ):
+        return jsonify(
+            error=f"Provide action ('take'/'add') and an integer amount between 1 and {MAX_STOCK_AMOUNT}"
+        ), 400
 
     delta = amount if action == "add" else -amount
     try:
-        adjust_stock(part, delta, _mcp_actor(), note=note)
+        adjust_stock(part, delta, _key_owner(), note=note)
     except ServiceError as e:
         return jsonify(error=str(e)), 400
 
@@ -113,7 +131,7 @@ def create_part():
             quantity=int(data.get("quantity", 0)),
             minimum_quantity=int(data.get("minimum_quantity", 0)),
             tags=data.get("tags", ""),
-            user=_mcp_actor(),
+            user=_key_owner(),
         )
     except (ServiceError, ValueError, TypeError) as e:
         return jsonify(error=str(e)), 400
@@ -135,7 +153,7 @@ def update_part(part_id):
             quantity=int(data.get("quantity", part.quantity)),
             minimum_quantity=int(data.get("minimum_quantity", part.minimum_quantity)),
             tags=data.get("tags", part.tags),
-            user=_mcp_actor(),
+            user=_key_owner(),
         )
     except (ServiceError, ValueError, TypeError) as e:
         return jsonify(error=str(e)), 400
@@ -157,7 +175,7 @@ def create_box():
         return jsonify(error="box_id, shelf, and row are required"), 400
 
     try:
-        box = register_box(data["box_id"], data["shelf"], data["row"], _mcp_actor())
+        box = register_box(data["box_id"], data["shelf"], data["row"], _key_owner())
     except ServiceError as e:
         return jsonify(error=str(e)), 400
 
@@ -175,6 +193,6 @@ def update_box(box_id):
         box,
         shelf=data.get("shelf", box.shelf),
         row=data.get("row", box.row),
-        user=_mcp_actor(),
+        user=_key_owner(),
     )
     return jsonify(box=_box_json(box))

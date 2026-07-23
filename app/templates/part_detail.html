@@ -41,7 +41,7 @@
   </form>
 </div>
 
-{% if current_user.is_admin %}
+{% if current_user.can_edit_catalog %}
 <p><a href="{{ url_for('parts.edit', part_id=part.id) }}" role="button" class="secondary">Edit part</a></p>
 {% endif %}
 {% endblock %}

@@ -13,7 +13,7 @@ class ServiceError(ValueError):
 
 def log_action(user, action, part_id=None, quantity_delta=None, note=None):
     entry = LogEntry(
-        user_id=user.id,
+        user_id=user.id if user else None,
         action=action,
         part_id=part_id,
         quantity_delta=quantity_delta,
@@ -45,6 +45,8 @@ def adjust_stock(part: Part, delta: int, user, note=None):
 
 
 def register_part(part_id, box_id, name, quantity, minimum_quantity, tags, user):
+    if quantity < 0 or minimum_quantity < 0:
+        raise ServiceError("Quantity and minimum quantity cannot be negative.")
     if Part.query.get(part_id) is not None:
         raise ServiceError(f"Part '{part_id}' already exists.")
     if Box.query.get(box_id) is None:
@@ -65,6 +67,8 @@ def register_part(part_id, box_id, name, quantity, minimum_quantity, tags, user)
 
 
 def edit_part(part: Part, name, quantity, minimum_quantity, tags, user):
+    if quantity < 0 or minimum_quantity < 0:
+        raise ServiceError("Quantity and minimum quantity cannot be negative.")
     part.name = name
     part.quantity = quantity
     part.minimum_quantity = minimum_quantity

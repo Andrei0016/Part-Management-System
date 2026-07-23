@@ -18,7 +18,7 @@
 </p>
 {% endif %}
 
-{% if current_user.is_admin %}
+{% if current_user.can_edit_catalog %}
 <p><a href="{{ url_for('parts.new_part') }}" role="button">+ Register part</a></p>
 {% endif %}
 

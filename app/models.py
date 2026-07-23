@@ -49,7 +49,14 @@ class User(UserMixin, db.Model):
     full_name = db.Column(db.String(120), nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
     is_admin = db.Column(db.Boolean, nullable=False, default=False)
+    # Can create/edit/delete parts and boxes, but not see the activity log,
+    # manage users, or manage API keys. Admins implicitly have this too.
+    is_editor = db.Column(db.Boolean, nullable=False, default=False)
     is_active = db.Column(db.Boolean, nullable=False, default=True)
+
+    @property
+    def can_edit_catalog(self):
+        return self.is_admin or self.is_editor
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -66,13 +73,33 @@ class LogEntry(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     timestamp = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
-    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    # Nullable: an API key with no owner produces genuinely unattributed
+    # actions (e.g. the auto-seeded bootstrap key before anyone claims it) —
+    # better to say so honestly than force a fake shared account.
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
     action = db.Column(db.String(20), nullable=False)  # take / add / register / edit
     part_id = db.Column(db.String(50), nullable=True)
     quantity_delta = db.Column(db.Integer, nullable=True)
     note = db.Column(db.String(300), nullable=True)
 
     user = db.relationship("User")
+
+
+class ApiKey(db.Model):
+    __tablename__ = "api_key"
+
+    id = db.Column(db.Integer, primary_key=True)
+    label = db.Column(db.String(120), nullable=False)
+    key_hash = db.Column(db.String(64), unique=True, nullable=False, index=True)
+    owner_user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    is_active = db.Column(db.Boolean, nullable=False, default=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    last_used_at = db.Column(db.DateTime, nullable=True)
+
+    owner = db.relationship("User")
+
+    def __repr__(self):
+        return f"<ApiKey {self.label}>"
 
 
 class SyncState(db.Model):

@@ -5,20 +5,17 @@
 <p><a href="{{ url_for('admin.new_user') }}" role="button">+ New user</a></p>
 <div class="table-wrap">
 <table>
-  <thead><tr><th>Username</th><th>Full name</th><th>Admin</th><th>Status</th><th></th></tr></thead>
+  <thead><tr><th>Username</th><th>Full name</th><th>Admin</th><th>Editor</th><th>Status</th><th></th></tr></thead>
   <tbody>
     {% for user in users %}
     <tr>
       <td>{{ user.username }}</td>
       <td>{{ user.full_name }}</td>
       <td>{{ 'Yes' if user.is_admin else 'No' }}</td>
+      <td>{{ 'Yes' if user.is_editor else 'No' }}</td>
       <td>{{ 'Active' if user.is_active else 'Inactive' }}</td>
       <td>
-        {% if user.username == mcp_username %}
-        <button type="button" role="button" class="secondary" disabled title="The MCP system account can't be edited here.">Edit</button>
-        {% else %}
         <a href="{{ url_for('admin.edit_user', user_id=user.id) }}" role="button" class="secondary">Edit</a>
-        {% endif %}
       </td>
     </tr>
     {% endfor %}

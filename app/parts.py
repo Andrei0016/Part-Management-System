@@ -1,7 +1,7 @@
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
-from app.auth import admin_required
+from app.auth import editor_required
 from app.models import Box, Part
 from app.services import (
     ServiceError,
@@ -66,7 +66,7 @@ def adjust(part_id):
 
 
 @parts_bp.route("/parts/new", methods=["GET", "POST"])
-@admin_required
+@editor_required
 def new_part():
     boxes = Box.query.order_by(Box.box_id).all()
     if request.method == "POST":
@@ -97,7 +97,7 @@ def new_part():
 
 
 @parts_bp.route("/parts/<part_id>/edit", methods=["GET", "POST"])
-@admin_required
+@editor_required
 def edit(part_id):
     part = Part.query.get_or_404(part_id)
     boxes = Box.query.order_by(Box.box_id).all()
@@ -124,7 +124,7 @@ def edit(part_id):
 
 
 @parts_bp.route("/parts/<part_id>/delete", methods=["POST"])
-@admin_required
+@editor_required
 def delete(part_id):
     part = Part.query.get_or_404(part_id)
     delete_part(part, current_user)

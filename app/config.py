@@ -4,6 +4,13 @@ import os
 class Config:
     SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-key-change-me")
 
+    SESSION_COOKIE_SAMESITE = "Lax"
+    # Off by default since the default deployment is plain HTTP on a LAN — a
+    # browser will silently drop the session cookie on every request if this
+    # is True and the app isn't served over HTTPS. Set SESSION_COOKIE_SECURE=true
+    # in .env once you put this behind TLS (e.g. a reverse proxy).
+    SESSION_COOKIE_SECURE = os.environ.get("SESSION_COOKIE_SECURE", "false").lower() == "true"
+
     # Displayed as the browser tab title and the nav-bar brand in the UI.
     SITE_TITLE = os.environ.get("SITE_TITLE", "PMS")
 
@@ -13,19 +20,11 @@ class Config:
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
-    # Internal API used by the MCP server container.
+    # Bootstrap value for the internal API — auto-imported as a real, ownerless
+    # ApiKey row on first run (see app/__init__.py::_seed_bootstrap_api_key).
+    # Ongoing key management happens in the ApiKey table via /admin/api-keys,
+    # not this env var.
     API_TOKEN = os.environ.get("API_TOKEN", "")
-
-    # System account used to attribute MCP-driven changes in the activity log.
-    MCP_USER_USERNAME = os.environ.get("MCP_USER_USERNAME", "mcp")
-    MCP_USER_FULL_NAME = os.environ.get("MCP_USER_FULL_NAME", "Claude (MCP)")
-
-    # MCP server connection info, shown on the admin MCP-info page. The web app
-    # doesn't use these itself — they're only read here so an admin can see how
-    # the mcp container is configured without shelling into it.
-    MCP_HOST = os.environ.get("MCP_HOST", "0.0.0.0")
-    MCP_PORT = os.environ.get("MCP_PORT", "8000")
-    PMS_API_BASE_URL = os.environ.get("PMS_API_BASE_URL", "http://web:5000")
 
     # Google Sheets sync
     GOOGLE_SHEETS_ID = os.environ.get("GOOGLE_SHEETS_ID", "")

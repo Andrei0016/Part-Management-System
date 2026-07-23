@@ -3,6 +3,10 @@
 {% block content %}
 <h2>Activity log</h2>
 
+<p>
+  Google Sheets: {{ 'pending changes' if sync_state.dirty else 'up to date' }},
+  last synced {{ sync_state.last_synced_at.strftime('%Y-%m-%d %H:%M UTC') if sync_state.last_synced_at else 'never' }}.
+</p>
 <form method="post" action="{{ url_for('admin.sync_now') }}">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <button type="submit" class="secondary">Sync to Google Sheets now</button>
@@ -15,7 +19,7 @@
     {% for entry in entries %}
     <tr>
       <td>{{ entry.timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
-      <td>{{ entry.user.full_name }}</td>
+      <td>{{ entry.user.full_name if entry.user else '(unattributed)' }}</td>
       <td>{{ entry.action }}</td>
       <td>{% if entry.part_id %}<a href="{{ url_for('parts.detail', part_id=entry.part_id) }}">{{ entry.part_id }}</a>{% endif %}</td>
       <td>{{ entry.quantity_delta if entry.quantity_delta is not none else '' }}</td>

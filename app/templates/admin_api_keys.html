@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}API keys{% endblock %}
+{% block content %}
+<h2>API keys</h2>
+<p>
+  These keys authenticate every request to <code>/api/*</code> — the same internal API the
+  MCP server (used by Claude) and any other integration go through. Each request must present
+  a key as <code>Authorization: Bearer &lt;key&gt;</code>; keys are stored only as a one-way
+  hash and shown in full exactly once, at creation, so make sure to copy it down then.
+</p>
+<p>
+  Every key belongs to a real, active user, and every action taken with it — through the MCP
+  server or otherwise — is recorded in the <a href="{{ url_for('admin.log') }}">activity log</a>
+  under that person, not a shared account. Give each person (or each client, e.g. a script)
+  their own key rather than sharing one, so the log reflects who actually did what. Revoking a
+  key takes effect immediately, with no restart needed, and does not affect any other key.
+  Deleting a key removes it permanently (its past activity-log entries are unaffected); a person
+  can't have two active keys with the same label, so revoke or rename before reusing one.
+</p>
+<p><a href="{{ url_for('admin.new_api_key') }}" role="button">+ New key</a></p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Label</th><th>Owner</th><th>Status</th><th>Created</th><th>Last used</th><th></th></tr></thead>
+  <tbody>
+    {% for key in keys %}
+    <tr>
+      <td>{{ key.label }}</td>
+      <td>{{ key.owner.full_name if key.owner else '(none)' }}</td>
+      <td>{{ 'Active' if key.is_active else 'Revoked' }}</td>
+      <td>{{ key.created_at.strftime('%Y-%m-%d %H:%M UTC') }}</td>
+      <td>{{ key.last_used_at.strftime('%Y-%m-%d %H:%M UTC') if key.last_used_at else 'Never' }}</td>
+      <td>
+        <div style="display: flex; gap: 0.5rem;">
+        {% if key.is_active %}
+        <form method="post" action="{{ url_for('admin.revoke_api_key_route', key_id=key.id) }}" style="margin: 0;">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="outline contrast confirm-btn"
+            data-confirm-label="Press again to confirm">Revoke</button>
+        </form>
+        {% else %}
+        <form method="post" action="{{ url_for('admin.reactivate_api_key_route', key_id=key.id) }}" style="margin: 0;">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="outline">Reactivate</button>
+        </form>
+        {% endif %}
+        <form method="post" action="{{ url_for('admin.delete_api_key_route', key_id=key.id) }}" style="margin: 0;">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="outline contrast confirm-btn"
+            data-confirm-label="Really delete?">Delete</button>
+        </form>
+        </div>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6">No API keys yet.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}New API key{% endblock %}
+{% block content %}
+<h2>New API key</h2>
+<form method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <label>Label
+    <input type="text" name="label" required placeholder="e.g. Alex's Claude Desktop"
+      value="{{ form.label if form else '' }}">
+  </label>
+  <label>Owner
+    <select name="owner_username" required>
+      <option value="" disabled {{ 'selected' if not form }}>Select who this key belongs to&hellip;</option>
+      {% for user in users %}
+      <option value="{{ user.username }}" {{ 'selected' if form and form.owner_username == user.username }}>{{ user.full_name }} ({{ user.username }})</option>
+      {% endfor %}
+    </select>
+  </label>
+  <button type="submit">Create key</button>
+</form>
+<p><a href="{{ url_for('admin.api_keys') }}">&larr; Back to API keys</a></p>
+{% endblock %}

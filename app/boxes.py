@@ -1,7 +1,7 @@
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
-from app.auth import admin_required
+from app.auth import editor_required
 from app.models import Box
 from app.services import ServiceError, delete_box, edit_box, register_box
 
@@ -23,7 +23,7 @@ def detail(box_id):
 
 
 @boxes_bp.route("/boxes/new", methods=["GET", "POST"])
-@admin_required
+@editor_required
 def new_box():
     if request.method == "POST":
         box_id = request.form.get("box_id", "").strip()
@@ -46,7 +46,7 @@ def new_box():
 
 
 @boxes_bp.route("/boxes/<box_id>/edit", methods=["GET", "POST"])
-@admin_required
+@editor_required
 def edit(box_id):
     box = Box.query.get_or_404(box_id)
 
@@ -66,7 +66,7 @@ def edit(box_id):
 
 
 @boxes_bp.route("/boxes/<box_id>/delete", methods=["POST"])
-@admin_required
+@editor_required
 def delete(box_id):
     box = Box.query.get_or_404(box_id)
     try:

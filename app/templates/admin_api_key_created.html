@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}API key created{% endblock %}
+{% block content %}
+<h2>API key created</h2>
+<article class="success">
+  Copy this value now — it won't be shown again. If you lose it, revoke this key and create a new one.
+</article>
+<div class="secret-reveal" data-token="{{ raw_key }}">
+  <code class="secret-value">{{ '•' * 24 }}</code>
+  <button type="button" class="outline secret-toggle">Show</button>
+  <button type="button" class="outline secret-copy">Copy</button>
+</div>
+<p><strong>Label:</strong> {{ key.label }}{% if key.owner %} &middot; attributed to {{ key.owner.full_name }}{% endif %}</p>
+<p><a href="{{ url_for('admin.api_keys') }}" role="button">Done</a></p>
+{% endblock %}
