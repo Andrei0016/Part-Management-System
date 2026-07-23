@@ -47,4 +47,5 @@ python wsgi.py                                    # runs on :5000 with debug=Tru
 See `.env.example` for all configuration options (site title, Google Sheets
 sync, MCP account, etc).
 
-### NOTE: This is almost entirely vibecoded so expect bugs. If you find any please let me know by making an issue. Thank you :)!
+>[!NOTE]
+>This is almost entirely vibecoded so expect bugs. If you find any please let me know by making an issue. Thank you :)!
