@@ -28,7 +28,7 @@ API_BASE_URL = os.environ.get("PMS_API_BASE_URL", "http://web:5000")
 MCP_HOST = os.environ.get("MCP_HOST", "0.0.0.0")
 MCP_PORT = int(os.environ.get("MCP_PORT", "8000"))
 
-mcp = FastMCP("ftc-parts", host=MCP_HOST, port=MCP_PORT)
+mcp = FastMCP("ftc-parts", host=MCP_HOST, port=MCP_PORT, stateless_http=True)
 
 
 class _BearerAuthGate:
