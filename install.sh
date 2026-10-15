@@ -277,12 +277,30 @@ main() {
   dc() { "${DC[@]}" "$@"; }
   ok "Docker Compose found"
 
+  ME="$(id -un)"
+  # fail_not_owner <path>: the update would need to replace something this
+  # user can't write to, typically because an earlier install ran as root.
+  fail_not_owner() {
+    fail "Your user ($ME) can't write to '$1', so the update can't replace it." \
+      "Give your user ownership of the install (run as a user with sudo):" \
+      "  sudo chown -R $ME: '$INSTALL_DIR'" \
+      "then re-run:  cd '$INSTALL_DIR' && bash install.sh"
+  }
+
   if [ "$SKIP_FETCH" -eq 0 ]; then
-    PARENT_DIR="$(dirname "$INSTALL_DIR")"
-    mkdir -p "$PARENT_DIR" 2>/dev/null || true
-    if [ ! -w "$PARENT_DIR" ] || { [ -d "$INSTALL_DIR" ] && [ ! -w "$INSTALL_DIR" ]; }; then
-      fail "Can't write to '$INSTALL_DIR'." \
-        "Pick a directory you own, e.g.:  PMS_DIR=\$HOME/pms bash install.sh"
+    if [ -d "$INSTALL_DIR" ]; then
+      # Updating: only the install folder itself matters, not its parent
+      # (e.g. /opt, which is normally root's).
+      if [ ! -w "$INSTALL_DIR" ]; then fail_not_owner "$INSTALL_DIR"; fi
+    else
+      PARENT_DIR="$(dirname "$INSTALL_DIR")"
+      mkdir -p "$PARENT_DIR" 2>/dev/null || true
+      if [ ! -w "$PARENT_DIR" ]; then
+        fail "Can't create '$INSTALL_DIR': your user ($ME) can't write to '$PARENT_DIR'." \
+          "Either install somewhere you own, e.g.:  PMS_DIR=\$HOME/pms bash install.sh" \
+          "or create the folder for yourself first (as a user with sudo):" \
+          "  sudo mkdir -p '$INSTALL_DIR' && sudo chown $ME: '$INSTALL_DIR'"
+      fi
     fi
   fi
 
@@ -398,6 +416,15 @@ main() {
     SRC=""
     for entry in "$WORK_DIR"/src/*; do SRC="$entry"; done
     [ -f "$SRC/docker-compose.yml" ] || fail "The downloaded archive doesn't look like PMS ($TARBALL_URL)."
+
+    # Check everything the copy would replace before replacing anything, so a
+    # permissions problem can't leave a half-updated install behind.
+    if [ -d "$INSTALL_DIR" ]; then
+      while IFS= read -r rel; do
+        target="$INSTALL_DIR/${rel#./}"
+        if [ -e "$target" ] && [ ! -w "$target" ]; then fail_not_owner "$target"; fi
+      done < <(cd "$SRC" && find . -mindepth 1)
+    fi
 
     mkdir -p "$INSTALL_DIR"
     # Copy everything except install.sh, which may be this very script: it's

@@ -29,7 +29,7 @@ def _fake_bin(tmp_path, docker_script=None, downloader=True):
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     for tool in ("bash", "sh", "uname", "dirname", "cat", "grep", "cut", "tail", "mkdir", "mktemp",
-                 "rm", "mv", "cp", "chmod", "tr", "awk", "seq", "sleep", "env", "pwd", "head", "od",
+                 "rm", "mv", "cp", "chmod", "tr", "awk", "seq", "sleep", "env", "pwd", "head", "od", "find", "id",
                  *(("curl", "tar") if downloader else ())):
         real = shutil.which(tool)
         if real:
@@ -175,3 +175,72 @@ def test_piped_update_runs_to_the_end(tmp_path):
     assert result.returncode == 0, result.stdout + result.stderr
     assert "PMS is running" in result.stdout
     assert "All done!" in result.stdout
+
+
+def _downloaded_install(tmp_path, parent):
+    """An install made by the installer (no .git), plus a tarball of a newer
+    version that the update will try to copy over it."""
+    import tarfile
+
+    install = parent / "pms"
+    install.mkdir(parents=True)
+    shutil.copy(INSTALL_SH, install / "install.sh")
+    for name, text in {"docker-compose.yml": "old\n", "wsgi.py": "old\n", "README.md": "old\n"}.items():
+        (install / name).write_text(text)
+    (install / ".env").write_text("SECRET_KEY=x\nWEB_PORT=1\nMCP_PUBLIC_PORT=2\n")
+
+    new = tmp_path / "new" / "Part-Management-System-master"
+    new.mkdir(parents=True)
+    shutil.copy(INSTALL_SH, new / "install.sh")
+    for name in ("docker-compose.yml", "wsgi.py", "README.md"):
+        (new / name).write_text("new\n")
+    tarball = tmp_path / "src.tar.gz"
+    with tarfile.open(tarball, "w:gz") as tar:
+        tar.add(new, arcname=new.name)
+    return install, {"PMS_TARBALL_URL": f"file://{tarball}"}
+
+
+@pytest.fixture
+def no_root():
+    if os.geteuid() == 0:
+        pytest.skip("root can write anywhere")
+
+
+def test_update_works_when_parent_dir_is_not_writable(tmp_path, no_root):
+    """Like /opt/pms: /opt belongs to root, but the update only needs pms/."""
+    opt = tmp_path / "opt"
+    install, env = _downloaded_install(tmp_path, opt)
+    opt.chmod(0o555)
+    try:
+        result = run_install(_fake_bin(tmp_path, FAKE_DOCKER_OK), tmp_path, script=install / "install.sh",
+                             extra_env=env)
+    finally:
+        opt.chmod(0o755)
+    assert "Can't" not in result.stderr.split("Docker couldn't")[0], result.stderr
+    assert "Code is up to date" in result.stdout
+    assert (install / "wsgi.py").read_text() == "new\n"
+
+
+def test_update_refuses_unwritable_install_dir(tmp_path, no_root):
+    install, env = _downloaded_install(tmp_path, tmp_path / "opt")
+    install.chmod(0o555)
+    try:
+        result = run_install(_fake_bin(tmp_path, FAKE_DOCKER_OK), tmp_path, script=install / "install.sh",
+                             extra_env=env)
+    finally:
+        install.chmod(0o755)
+    assert result.returncode == 1
+    assert f"sudo chown -R" in result.stderr and str(install) in result.stderr
+    assert "PMS_DIR" not in result.stderr  # a new folder would be a second, empty install
+
+
+def test_update_checks_every_file_before_copying_any(tmp_path, no_root):
+    install, env = _downloaded_install(tmp_path, tmp_path / "opt")
+    (install / "wsgi.py").chmod(0o444)  # e.g. left behind by an earlier install run as root
+    result = run_install(_fake_bin(tmp_path, FAKE_DOCKER_OK), tmp_path, script=install / "install.sh",
+                         extra_env=env)
+    assert result.returncode == 1
+    assert "wsgi.py" in result.stderr and "sudo chown -R" in result.stderr
+    # Nothing was half-copied.
+    assert (install / "docker-compose.yml").read_text() == "old\n"
+    assert (install / "README.md").read_text() == "old\n"
