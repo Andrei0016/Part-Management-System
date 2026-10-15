@@ -8,9 +8,9 @@ services:
       DATABASE_URL: sqlite:////app/instance/parts.db
     volumes:
       - ./instance:/app/instance
-      - ./credentials:/run/secrets:ro
     ports:
-      - "5000:5000"
+      # Host port is WEB_PORT in .env (default 5000).
+      - "${WEB_PORT:-5000}:5000"
     restart: unless-stopped
 
   mcp:
@@ -23,5 +23,6 @@ services:
     depends_on:
       - web
     ports:
-      - "8000:8000"
+      # Host port is MCP_PUBLIC_PORT in .env (default 8000).
+      - "${MCP_PUBLIC_PORT:-8000}:${MCP_PORT:-8000}"
     restart: unless-stopped

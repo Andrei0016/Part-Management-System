@@ -92,3 +92,24 @@ article.warning { border-left: 4px solid #e67e22; }
     padding: 0.85rem 1rem;
   }
 }
+
+/* Layout helpers. The Content-Security-Policy only allows stylesheets from
+   'self', so inline style="" attributes are ignored by the browser — put
+   layout tweaks here instead. */
+.login-card {
+  max-width: 400px;
+  margin: 2rem auto;
+}
+
+.row-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.inline-form {
+  margin: 0;
+}
+
+.danger-zone {
+  margin-top: 1rem;
+}

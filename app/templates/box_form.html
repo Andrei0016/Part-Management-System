@@ -22,7 +22,7 @@
   {% if box.parts %}
   <p><small>This box still has parts in it — remove them before it can be deleted.</small></p>
   {% else %}
-  <form method="post" action="{{ url_for('boxes.delete', box_id=box.box_id) }}" style="margin-top: 1rem;">
+  <form method="post" action="{{ url_for('boxes.delete', box_id=box.box_id) }}" class="danger-zone">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <button type="submit" class="outline contrast confirm-btn"
       data-confirm-label="Press again to confirm">Delete box</button>

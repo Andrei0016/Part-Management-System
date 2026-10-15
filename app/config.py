@@ -19,17 +19,3 @@ class Config:
         "DATABASE_URL", f"sqlite:///{_default_db_path}"
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-
-    # Bootstrap value for the internal API — auto-imported as a real, ownerless
-    # ApiKey row on first run (see app/__init__.py::_seed_bootstrap_api_key).
-    # Ongoing key management happens in the ApiKey table via /admin/api-keys,
-    # not this env var.
-    API_TOKEN = os.environ.get("API_TOKEN", "")
-
-    # Google Sheets sync
-    GOOGLE_SHEETS_ID = os.environ.get("GOOGLE_SHEETS_ID", "")
-    GOOGLE_SERVICE_ACCOUNT_FILE = os.environ.get(
-        "GOOGLE_SERVICE_ACCOUNT_FILE", "/run/secrets/google_service_account.json"
-    )
-    SYNC_INTERVAL_MINUTES = int(os.environ.get("SYNC_INTERVAL_MINUTES", "20"))
-    SHEETS_SYNC_ENABLED = os.environ.get("SHEETS_SYNC_ENABLED", "true").lower() == "true"

@@ -6,7 +6,7 @@
 <form method="post">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   {% if not part %}
-  <label>Part ID (format box_id-part_id, e.g. 001-001)
+  <label>Part ID (must be unique within the selected box, e.g. 1)
     <input type="text" name="id" required value="{{ form.id if form else '' }}">
   </label>
   <label>Box
@@ -37,7 +37,7 @@
   <button type="submit">{{ 'Save changes' if part else 'Register part' }}</button>
 </form>
 {% if part %}
-<form method="post" action="{{ url_for('parts.delete', part_id=part.id) }}" style="margin-top: 1rem;">
+<form method="post" action="{{ url_for('parts.delete', part_id=part.id, box_id=part.box_id) }}" class="danger-zone">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <button type="submit" class="outline contrast confirm-btn"
     data-confirm-label="Press again to confirm">Delete part</button>

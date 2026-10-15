@@ -22,8 +22,8 @@ class Box(db.Model):
 class Part(db.Model):
     __tablename__ = "part"
 
-    id = db.Column(db.String(50), primary_key=True)  # box_id-part_id, e.g. 001-001
-    box_id = db.Column(db.String(20), db.ForeignKey("box.box_id"), nullable=False)
+    id = db.Column(db.String(50), primary_key=True)
+    box_id = db.Column(db.String(20), db.ForeignKey("box.box_id"), primary_key=True, nullable=False)
     name = db.Column(db.String(200), nullable=False)
     quantity = db.Column(db.Integer, nullable=False, default=0)
     minimum_quantity = db.Column(db.Integer, nullable=False, default=0)
@@ -36,6 +36,11 @@ class Part(db.Model):
     @property
     def is_low_stock(self):
         return self.quantity < self.minimum_quantity
+
+    @property
+    def full_id(self):
+        """Human-facing identifier — id alone is only unique within a box."""
+        return f"{self.box_id}-{self.id}"
 
     def __repr__(self):
         return f"<Part {self.id} {self.name}>"
@@ -52,11 +57,29 @@ class User(UserMixin, db.Model):
     # Can create/edit/delete parts and boxes, but not see the activity log,
     # manage users, or manage API keys. Admins implicitly have this too.
     is_editor = db.Column(db.Boolean, nullable=False, default=False)
+    # Can take/add stock on existing parts, but not register, edit, or delete
+    # parts or boxes. Editors and admins implicitly have this too. A user with
+    # none of these flags is a visitor: browse only.
+    is_member = db.Column(db.Boolean, nullable=False, default=False)
     is_active = db.Column(db.Boolean, nullable=False, default=True)
 
     @property
     def can_edit_catalog(self):
         return self.is_admin or self.is_editor
+
+    @property
+    def can_adjust_stock(self):
+        return self.is_admin or self.is_editor or self.is_member
+
+    @property
+    def role(self):
+        if self.is_admin:
+            return "admin"
+        if self.is_editor:
+            return "editor"
+        if self.is_member:
+            return "member"
+        return "visitor"
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -74,8 +97,7 @@ class LogEntry(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     timestamp = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
     # Nullable: an API key with no owner produces genuinely unattributed
-    # actions (e.g. the auto-seeded bootstrap key before anyone claims it) —
-    # better to say so honestly than force a fake shared account.
+    # actions — better to say so honestly than force a fake shared account.
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
     action = db.Column(db.String(20), nullable=False)  # take / add / register / edit
     part_id = db.Column(db.String(50), nullable=True)
@@ -100,26 +122,3 @@ class ApiKey(db.Model):
 
     def __repr__(self):
         return f"<ApiKey {self.label}>"
-
-
-class SyncState(db.Model):
-    __tablename__ = "sync_state"
-
-    id = db.Column(db.Integer, primary_key=True)
-    dirty = db.Column(db.Boolean, nullable=False, default=True)
-    last_synced_at = db.Column(db.DateTime, nullable=True)
-
-    @classmethod
-    def get(cls):
-        state = cls.query.first()
-        if state is None:
-            state = cls(dirty=True, last_synced_at=None)
-            db.session.add(state)
-            db.session.commit()
-        return state
-
-    @classmethod
-    def mark_dirty(cls):
-        state = cls.get()
-        state.dirty = True
-        db.session.commit()

@@ -3,7 +3,7 @@
 {% block content %}
 <hgroup>
   <h2>{{ part.name }}</h2>
-  <h3>{{ part.id }}</h3>
+  <h3>{{ part.full_id }}</h3>
 </hgroup>
 
 <p>
@@ -21,8 +21,9 @@
   {% for t in part.tag_list %}<span class="tag-pill">{{ t }}</span>{% endfor %}
 </p>
 
+{% if current_user.can_adjust_stock %}
 <div class="grid">
-  <form method="post" action="{{ url_for('parts.adjust', part_id=part.id) }}">
+  <form method="post" action="{{ url_for('parts.adjust', part_id=part.id, box_id=part.box_id) }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="action" value="take">
     <label>Take
@@ -31,7 +32,7 @@
     <button type="submit">Take stock</button>
   </form>
 
-  <form method="post" action="{{ url_for('parts.adjust', part_id=part.id) }}">
+  <form method="post" action="{{ url_for('parts.adjust', part_id=part.id, box_id=part.box_id) }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="action" value="add">
     <label>Add
@@ -40,8 +41,9 @@
     <button type="submit" class="secondary">Add stock</button>
   </form>
 </div>
+{% endif %}
 
 {% if current_user.can_edit_catalog %}
-<p><a href="{{ url_for('parts.edit', part_id=part.id) }}" role="button" class="secondary">Edit part</a></p>
+<p><a href="{{ url_for('parts.edit', part_id=part.id, box_id=part.box_id) }}" role="button" class="secondary">Edit part</a></p>
 {% endif %}
 {% endblock %}

@@ -1,7 +1,7 @@
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
-from app.auth import editor_required
+from app.auth import editor_required, member_required
 from app.models import Box, Part
 from app.services import (
     ServiceError,
@@ -33,27 +33,30 @@ def index():
     )
 
 
-@parts_bp.route("/parts/<part_id>")
+@parts_bp.route("/parts/<box_id>/<part_id>")
 @login_required
-def detail(part_id):
-    part = Part.query.get_or_404(part_id)
+def detail(part_id, box_id):
+    part = Part.query.filter_by(id=part_id, box_id=box_id).first_or_404()
     return render_template("part_detail.html", part=part)
 
 
-@parts_bp.route("/parts/<part_id>/stock", methods=["POST"])
-@login_required
-def adjust(part_id):
-    part = Part.query.get_or_404(part_id)
+@parts_bp.route("/parts/<box_id>/<part_id>/stock", methods=["POST"])
+@member_required
+def adjust(part_id, box_id):
+    part = Part.query.filter_by(id=part_id, box_id=box_id).first_or_404()
     action = request.form.get("action")
+    if action not in ("take", "add"):
+        flash("Choose whether to take or add stock.", "error")
+        return redirect(url_for("parts.detail", part_id=part_id, box_id=box_id))
     try:
         amount = int(request.form.get("amount", "0"))
     except ValueError:
         flash("Quantity must be a whole number.", "error")
-        return redirect(url_for("parts.detail", part_id=part_id))
+        return redirect(url_for("parts.detail", part_id=part_id, box_id=box_id))
 
     if amount <= 0:
         flash("Quantity must be greater than zero.", "error")
-        return redirect(url_for("parts.detail", part_id=part_id))
+        return redirect(url_for("parts.detail", part_id=part_id, box_id=box_id))
 
     delta = amount if action == "add" else -amount
     try:
@@ -62,7 +65,7 @@ def adjust(part_id):
     except ServiceError as e:
         flash(str(e), "error")
 
-    return redirect(url_for("parts.detail", part_id=part_id))
+    return redirect(url_for("parts.detail", part_id=part_id, box_id=box_id))
 
 
 @parts_bp.route("/parts/new", methods=["GET", "POST"])
@@ -88,7 +91,7 @@ def new_part():
         try:
             register_part(part_id, box_id, name, quantity, minimum_quantity, tags, current_user)
             flash(f"Part '{part_id}' registered.", "success")
-            return redirect(url_for("parts.detail", part_id=part_id))
+            return redirect(url_for("parts.detail", part_id=part_id, box_id=box_id))
         except ServiceError as e:
             flash(str(e), "error")
             return render_template("part_form.html", boxes=boxes, part=None, form=request.form)
@@ -96,10 +99,10 @@ def new_part():
     return render_template("part_form.html", boxes=boxes, part=None, form=None)
 
 
-@parts_bp.route("/parts/<part_id>/edit", methods=["GET", "POST"])
+@parts_bp.route("/parts/<box_id>/<part_id>/edit", methods=["GET", "POST"])
 @editor_required
-def edit(part_id):
-    part = Part.query.get_or_404(part_id)
+def edit(part_id, box_id):
+    part = Part.query.filter_by(id=part_id, box_id=box_id).first_or_404()
     boxes = Box.query.order_by(Box.box_id).all()
 
     if request.method == "POST":
@@ -118,15 +121,15 @@ def edit(part_id):
 
         edit_part(part, name, quantity, minimum_quantity, tags, current_user)
         flash(f"Part '{part_id}' updated.", "success")
-        return redirect(url_for("parts.detail", part_id=part_id))
+        return redirect(url_for("parts.detail", part_id=part_id, box_id=box_id))
 
     return render_template("part_form.html", boxes=boxes, part=part, form=None)
 
 
-@parts_bp.route("/parts/<part_id>/delete", methods=["POST"])
+@parts_bp.route("/parts/<box_id>/<part_id>/delete", methods=["POST"])
 @editor_required
-def delete(part_id):
-    part = Part.query.get_or_404(part_id)
+def delete(part_id, box_id):
+    part = Part.query.filter_by(id=part_id, box_id=box_id).first_or_404()
     delete_part(part, current_user)
     flash(f"Part '{part_id}' deleted.", "success")
     return redirect(url_for("parts.index"))

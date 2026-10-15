@@ -72,6 +72,20 @@ def editor_required(view):
     return wrapped
 
 
+def member_required(view):
+    """Allows members, editors, and admins — for taking/adding stock on
+    existing parts. Visitors can only browse."""
+
+    @wraps(view)
+    @login_required
+    def wrapped(*args, **kwargs):
+        if not current_user.can_adjust_stock:
+            abort(403)
+        return view(*args, **kwargs)
+
+    return wrapped
+
+
 @auth_bp.before_app_request
 def _enforce_active_session():
     # UserMixin.is_authenticated defers to is_active, so a deactivated user's

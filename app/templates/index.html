@@ -26,7 +26,7 @@
 <article class="warning">
   <strong>Low stock:</strong>
   {% for p in low_stock %}
-    <a href="{{ url_for('parts.detail', part_id=p.id) }}">{{ p.name }} ({{ p.quantity }}/{{ p.minimum_quantity }})</a>{% if not loop.last %}, {% endif %}
+    <a href="{{ url_for('parts.detail', part_id=p.id, box_id=p.box_id) }}">{{ p.name }} ({{ p.quantity }}/{{ p.minimum_quantity }})</a>{% if not loop.last %}, {% endif %}
   {% endfor %}
 </article>
 {% endif %}
@@ -39,7 +39,7 @@
   <tbody>
     {% for part in parts %}
     <tr>
-      <td><a href="{{ url_for('parts.detail', part_id=part.id) }}">{{ part.id }}</a></td>
+      <td><a href="{{ url_for('parts.detail', part_id=part.id, box_id=part.box_id) }}">{{ part.full_id }}</a></td>
       <td>{{ part.name }}</td>
       <td>{{ part.box_id }}</td>
       <td>{{ part.box.shelf }} / {{ part.box.row }}</td>

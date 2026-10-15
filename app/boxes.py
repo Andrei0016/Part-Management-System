@@ -2,6 +2,7 @@ from flask import Blueprint, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
 from app.auth import editor_required
+from app.extensions import db
 from app.models import Box
 from app.services import ServiceError, delete_box, edit_box, register_box
 
@@ -18,7 +19,7 @@ def index():
 @boxes_bp.route("/boxes/<box_id>")
 @login_required
 def detail(box_id):
-    box = Box.query.get_or_404(box_id)
+    box = db.get_or_404(Box, box_id)
     return render_template("box_detail.html", box=box)
 
 
@@ -48,7 +49,7 @@ def new_box():
 @boxes_bp.route("/boxes/<box_id>/edit", methods=["GET", "POST"])
 @editor_required
 def edit(box_id):
-    box = Box.query.get_or_404(box_id)
+    box = db.get_or_404(Box, box_id)
 
     if request.method == "POST":
         shelf = request.form.get("shelf", "").strip()
@@ -68,7 +69,7 @@ def edit(box_id):
 @boxes_bp.route("/boxes/<box_id>/delete", methods=["POST"])
 @editor_required
 def delete(box_id):
-    box = Box.query.get_or_404(box_id)
+    box = db.get_or_404(Box, box_id)
     try:
         delete_box(box, current_user)
         flash(f"Box '{box_id}' deleted.", "success")

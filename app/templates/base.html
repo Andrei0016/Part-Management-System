@@ -14,7 +14,7 @@
       <li><strong><a href="{{ url_for('parts.index') }}">{{ config.SITE_TITLE }}</a></strong></li>
     </ul>
     {% if current_user.is_authenticated %}
-    <ul id="nav-links" style="Addalign-content: end">
+    <ul id="nav-links">
       <li><a href="{{ url_for('parts.index') }}">Search</a></li>
       <li><a href="{{ url_for('boxes.index') }}">Boxes</a></li>
       {% if current_user.is_admin %}

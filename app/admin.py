@@ -1,19 +1,29 @@
-from flask import Blueprint, abort, current_app, flash, redirect, render_template, request, url_for
+from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
 from flask_login import current_user
 
 from app.api_keys import ApiKeyError, create_api_key, delete_api_key, reactivate_api_key, revoke_api_key
 from app.auth import admin_required
 from app.extensions import db
-from app.models import ApiKey, LogEntry, SyncState, User
+from app.models import ApiKey, LogEntry, User
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
+
+VALID_ROLES = ("visitor", "member", "editor", "admin")
+
+
+def _role_to_flags(role):
+    return {
+        "is_admin": role == "admin",
+        "is_editor": role in ("editor", "admin"),
+        "is_member": role in ("member", "editor", "admin"),
+    }
 
 
 @admin_bp.route("/log")
 @admin_required
 def log():
     entries = LogEntry.query.order_by(LogEntry.timestamp.desc()).limit(200).all()
-    return render_template("admin_log.html", entries=entries, sync_state=SyncState.get())
+    return render_template("admin_log.html", entries=entries)
 
 
 @admin_bp.route("/users")
@@ -30,18 +40,21 @@ def new_user():
         username = request.form.get("username", "").strip()
         full_name = request.form.get("full_name", "").strip()
         password = request.form.get("password", "")
-        is_admin = request.form.get("is_admin") == "on"
-        is_editor = request.form.get("is_editor") == "on"
+        role = request.form.get("role", "")
 
         if not username or not full_name or not password:
             flash("Username, full name, and password are required.", "error")
+            return render_template("admin_user_form.html", form=request.form)
+
+        if role not in VALID_ROLES:
+            flash("Pick a valid role.", "error")
             return render_template("admin_user_form.html", form=request.form)
 
         if User.query.filter_by(username=username).first() is not None:
             flash(f"User '{username}' already exists.", "error")
             return render_template("admin_user_form.html", form=request.form)
 
-        user = User(username=username, full_name=full_name, is_admin=is_admin, is_editor=is_editor)
+        user = User(username=username, full_name=full_name, **_role_to_flags(role))
         user.set_password(password)
         db.session.add(user)
         db.session.commit()
@@ -62,11 +75,14 @@ def edit_user(user_id):
         username = request.form.get("username", "").strip()
         full_name = request.form.get("full_name", "").strip()
         password = request.form.get("password", "")
-        is_admin = request.form.get("is_admin") == "on"
-        is_editor = request.form.get("is_editor") == "on"
+        role = request.form.get("role", "")
 
         if not username or not full_name:
             flash("Username and full name are required.", "error")
+            return render_template("admin_user_form.html", form=request.form, edit_user=user)
+
+        if role not in VALID_ROLES:
+            flash("Pick a valid role.", "error")
             return render_template("admin_user_form.html", form=request.form, edit_user=user)
 
         existing = User.query.filter_by(username=username).first()
@@ -74,14 +90,14 @@ def edit_user(user_id):
             flash(f"User '{username}' already exists.", "error")
             return render_template("admin_user_form.html", form=request.form, edit_user=user)
 
-        if user.id == current_user.id and not is_admin:
+        if user.id == current_user.id and role != "admin":
             flash("You can't remove your own admin access.", "error")
             return render_template("admin_user_form.html", form=request.form, edit_user=user)
 
         user.username = username
         user.full_name = full_name
-        user.is_admin = is_admin
-        user.is_editor = is_editor
+        for field, value in _role_to_flags(role).items():
+            setattr(user, field, value)
         if password:
             user.set_password(password)
         db.session.commit()
@@ -119,16 +135,6 @@ def reactivate_user(user_id):
     db.session.commit()
     flash(f"User '{user.username}' reactivated.", "success")
     return redirect(url_for("admin.users"))
-
-
-@admin_bp.route("/sync-now", methods=["POST"])
-@admin_required
-def sync_now():
-    from app.sheets_sync import sync_once
-
-    ok, message = sync_once(current_app._get_current_object(), force=True)
-    flash(message, "success" if ok else "error")
-    return redirect(request.referrer or url_for("parts.index"))
 
 
 @admin_bp.route("/api-keys")

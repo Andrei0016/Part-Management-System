@@ -1,21 +1,21 @@
 """Shared operations used by the web blueprints and the internal API.
 
 Centralizing these here means every write path (UI or MCP-driven) logs the
-same way and marks the sync state dirty the same way.
+same way.
 """
 from app.extensions import db
-from app.models import Box, LogEntry, Part, SyncState
+from app.models import Box, LogEntry, Part
 
 
 class ServiceError(ValueError):
     """Raised for user-facing validation failures (bad id, insufficient stock, etc.)."""
 
 
-def log_action(user, action, part_id=None, quantity_delta=None, note=None):
+def log_action(user, action, part_id=None, box_id=None, quantity_delta=None, note=None):
     entry = LogEntry(
         user_id=user.id if user else None,
         action=action,
-        part_id=part_id,
+        part_id=f"{box_id}-{part_id}" if part_id is not None else None,
         quantity_delta=quantity_delta,
         note=note,
     )
@@ -36,10 +36,10 @@ def adjust_stock(part: Part, delta: int, user, note=None):
         user,
         action="add" if delta > 0 else "take",
         part_id=part.id,
+        box_id=part.box_id,
         quantity_delta=delta,
         note=note,
     )
-    SyncState.mark_dirty()
     db.session.commit()
     return part
 
@@ -47,9 +47,9 @@ def adjust_stock(part: Part, delta: int, user, note=None):
 def register_part(part_id, box_id, name, quantity, minimum_quantity, tags, user):
     if quantity < 0 or minimum_quantity < 0:
         raise ServiceError("Quantity and minimum quantity cannot be negative.")
-    if Part.query.get(part_id) is not None:
-        raise ServiceError(f"Part '{part_id}' already exists.")
-    if Box.query.get(box_id) is None:
+    if Part.query.filter_by(id=part_id, box_id=box_id).first() is not None:
+        raise ServiceError(f"Part '{part_id}' already exists in box '{box_id}'")
+    if db.session.get(Box, box_id) is None:
         raise ServiceError(f"Box '{box_id}' does not exist.")
     part = Part(
         id=part_id,
@@ -60,8 +60,7 @@ def register_part(part_id, box_id, name, quantity, minimum_quantity, tags, user)
         tags=tags,
     )
     db.session.add(part)
-    log_action(user, action="register", part_id=part_id, note=f"Registered part '{name}'")
-    SyncState.mark_dirty()
+    log_action(user, action="register", part_id=part_id, box_id=box_id, note=f"Registered part '{name}'")
     db.session.commit()
     return part
 
@@ -73,27 +72,24 @@ def edit_part(part: Part, name, quantity, minimum_quantity, tags, user):
     part.quantity = quantity
     part.minimum_quantity = minimum_quantity
     part.tags = tags
-    log_action(user, action="edit", part_id=part.id, note=f"Edited part '{name}'")
-    SyncState.mark_dirty()
+    log_action(user, action="edit", part_id=part.id, box_id=part.box_id, note=f"Edited part '{name}'")
     db.session.commit()
     return part
 
 
 def delete_part(part: Part, user):
     part_id = part.id
-    log_action(user, action="delete", part_id=part_id, note=f"Deleted part '{part.name}'")
+    log_action(user, action="delete", part_id=part_id, box_id=part.box_id, note=f"Deleted part '{part.name}'")
     db.session.delete(part)
-    SyncState.mark_dirty()
     db.session.commit()
 
 
 def register_box(box_id, shelf, row, user):
-    if Box.query.get(box_id) is not None:
+    if db.session.get(Box, box_id) is not None:
         raise ServiceError(f"Box '{box_id}' already exists.")
     box = Box(box_id=box_id, shelf=shelf, row=row)
     db.session.add(box)
     log_action(user, action="register", note=f"Registered box '{box_id}' ({shelf}/{row})")
-    SyncState.mark_dirty()
     db.session.commit()
     return box
 
@@ -102,7 +98,6 @@ def edit_box(box: Box, shelf, row, user):
     box.shelf = shelf
     box.row = row
     log_action(user, action="edit", note=f"Edited box '{box.box_id}' ({shelf}/{row})")
-    SyncState.mark_dirty()
     db.session.commit()
     return box
 
@@ -113,7 +108,6 @@ def delete_box(box: Box, user):
     box_id = box.box_id
     log_action(user, action="delete", note=f"Deleted box '{box_id}'")
     db.session.delete(box)
-    SyncState.mark_dirty()
     db.session.commit()
 
 
@@ -121,7 +115,8 @@ def search_parts(query=None, tag=None):
     q = Part.query
     if query:
         like = f"%{query}%"
-        q = q.filter(db.or_(Part.name.ilike(like), Part.id.ilike(like)))
+        full_id = Part.box_id + "-" + Part.id
+        q = q.filter(db.or_(Part.name.ilike(like), Part.id.ilike(like), full_id.ilike(like)))
     if tag:
         # tags is a comma-separated string; match tag as a whole token.
         q = q.filter(Part.tags.ilike(f"%{tag}%"))

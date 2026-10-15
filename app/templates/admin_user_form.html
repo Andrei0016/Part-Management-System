@@ -15,28 +15,26 @@
   <label>Password{% if edit_user %} (leave blank to keep current){% endif %}
     <input type="password" name="password" {{ 'required' if not edit_user else '' }}>
   </label>
-  <label>
-    <input type="checkbox" name="is_admin"
-      {{ 'checked' if (form and form.is_admin == 'on') or (not form and edit_user and edit_user.is_admin) }}>
-    Admin
-  </label>
-  <label>
-    <input type="checkbox" name="is_editor"
-      {{ 'checked' if (form and (form.is_editor == 'on' or form.is_admin == 'on'))
-        or (not form and edit_user and (edit_user.is_editor or edit_user.is_admin)) }}>
-    Editor
+  {% set current_role = form.role if form else (edit_user.role if edit_user else 'visitor') %}
+  <label>Role
+    <select name="role" required>
+      <option value="visitor" {{ 'selected' if current_role == 'visitor' }}>Visitor (browse only)</option>
+      <option value="member" {{ 'selected' if current_role == 'member' }}>Member (take/add stock)</option>
+      <option value="editor" {{ 'selected' if current_role == 'editor' }}>Editor (create/edit/delete parts and boxes)</option>
+      <option value="admin" {{ 'selected' if current_role == 'admin' }}>Admin (full access)</option>
+    </select>
   </label>
   <button type="submit">{{ 'Save changes' if edit_user else 'Create user' }}</button>
 </form>
 {% if edit_user and edit_user.id != current_user.id %}
   {% if edit_user.is_active %}
-    <form method="post" action="{{ url_for('admin.deactivate_user', user_id=edit_user.id) }}" style="margin: 0;">
+    <form method="post" action="{{ url_for('admin.deactivate_user', user_id=edit_user.id) }}" class="inline-form">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <button type="submit" class="outline contrast confirm-btn"
         data-confirm-label="Press again to confirm">Deactivate</button>
     </form>
   {% else %}
-    <form method="post" action="{{ url_for('admin.reactivate_user', user_id=edit_user.id) }}" style="margin: 0;">
+    <form method="post" action="{{ url_for('admin.reactivate_user', user_id=edit_user.id) }}" class="inline-form">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <button type="submit" class="outline">Reactivate</button>
     </form>

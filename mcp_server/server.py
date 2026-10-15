@@ -1,28 +1,11 @@
-"""MCP server exposing the parts system to Claude.
-
-Runs as its own container (Streamable-HTTP transport) so it's reachable
-over the LAN at any time, independent of where Claude itself runs. It never
-touches the database directly — every tool call goes through the web app's
-token-authed internal API, which keeps activity logging and the Sheets
-dirty-flag centralized in one writer.
-
-This server holds no credential of its own. Each connecting client presents
-its own bearer key (from /admin/api-keys on `web`); _BearerAuthGate only
-checks that *some* key is present, then every tool call forwards that exact
-key to `web`'s /api/*, which is the single source of truth for whether it's
-actually valid. This means each person gets their own key and their own
-attribution in the activity log, instead of every MCP-driven write sharing
-one identity. mcp==1.28.1's own RequestContext plumbs the real inbound
-Starlette Request (headers and all) through to each individual tool call —
-re-set on every HTTP POST, not just once per session — so this is standard
-SDK behavior, not something hand-rolled here.
-"""
 import os
 
 import anyio
 import requests
 from mcp.server.fastmcp import Context, FastMCP
+from mcp.types import ToolAnnotations
 from starlette.responses import JSONResponse
+from pydantic import BaseModel
 
 API_BASE_URL = os.environ.get("PMS_API_BASE_URL", "http://web:5000")
 MCP_HOST = os.environ.get("MCP_HOST", "0.0.0.0")
@@ -30,6 +13,8 @@ MCP_PORT = int(os.environ.get("MCP_PORT", "8000"))
 
 mcp = FastMCP("ftc-parts", host=MCP_HOST, port=MCP_PORT, stateless_http=True)
 
+class ConfirmDelete(BaseModel):
+    confirm: bool
 
 class _BearerAuthGate:
     """Plain ASGI middleware: reject any HTTP request with no bearer token
@@ -43,16 +28,17 @@ class _BearerAuthGate:
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
             await self.app(scope, receive, send)
-            return
+            return None
 
         headers = dict(scope.get("headers") or [])
         auth_header = headers.get(b"authorization", b"").decode("latin-1")
         if not auth_header.startswith("Bearer ") or auth_header == "Bearer ":
             response = JSONResponse({"error": "Unauthorized"}, status_code=401)
             await response(scope, receive, send)
-            return
+            return None
 
         await self.app(scope, receive, send)
+        return None
 
 
 def _caller_token(ctx: Context) -> str:
@@ -76,9 +62,15 @@ def _api(method, path, token, **kwargs):
         timeout=10,
         **kwargs,
     )
-    data = resp.json()
+    try:
+        data = resp.json()
+    except ValueError:
+        data = None
     if resp.status_code >= 400:
-        raise ValueError(data.get("error", f"Request failed with status {resp.status_code}"))
+        error = data.get("error") if isinstance(data, dict) else None
+        raise ValueError(error or f"Request failed with status {resp.status_code}")
+    if data is None:
+        raise ValueError(f"Unexpected non-JSON response (status {resp.status_code}) from the PMS API.")
     return data
 
 
@@ -96,10 +88,11 @@ def search_parts(query: str = "", tag: str = "", ctx: Context = None) -> dict:
 
 
 @mcp.tool()
-def get_part(part_id: str, ctx: Context = None) -> dict:
-    """Get full details (location, quantity, tags) for one part by its id (box_id-part_id)."""
+def get_part(part_id: str, box_id: str, ctx: Context = None) -> dict:
+    """Get full details (location, quantity, tags) for one part. Parts are
+    identified by the box they're in plus their id within that box."""
     token = _caller_token(ctx)
-    return _api("GET", f"/api/parts/{part_id}", token)
+    return _api("GET", f"/api/parts/{box_id}/{part_id}", token)
 
 
 @mcp.tool()
@@ -110,21 +103,23 @@ def list_low_stock(ctx: Context = None) -> dict:
 
 
 @mcp.tool()
-def take_stock(part_id: str, amount: int, note: str = "", ctx: Context = None) -> dict:
-    """Remove `amount` units of a part from stock. Fails if that would go negative."""
+def take_stock(part_id: str, box_id: str, amount: int, note: str = "", ctx: Context = None) -> dict:
+    """Remove `amount` units of a part from stock. Fails if that would go negative.
+    Requires the API key's owner to be a member, editor, or admin."""
     token = _caller_token(ctx)
     return _api(
-        "POST", f"/api/parts/{part_id}/stock", token,
+        "POST", f"/api/parts/{box_id}/{part_id}/stock", token,
         json={"action": "take", "amount": amount, "note": note},
     )
 
 
 @mcp.tool()
-def add_stock(part_id: str, amount: int, note: str = "", ctx: Context = None) -> dict:
-    """Add `amount` units of a part to stock."""
+def add_stock(part_id: str, box_id: str, amount: int, note: str = "", ctx: Context = None) -> dict:
+    """Add `amount` units of a part to stock. Requires the API key's owner to be
+    a member, editor, or admin."""
     token = _caller_token(ctx)
     return _api(
-        "POST", f"/api/parts/{part_id}/stock", token,
+        "POST", f"/api/parts/{box_id}/{part_id}/stock", token,
         json={"action": "add", "amount": amount, "note": note},
     )
 
@@ -139,8 +134,9 @@ def register_part(
     tags: str = "",
     ctx: Context = None,
 ) -> dict:
-    """Register a new part. part_id must be formatted box_id-part_id (e.g. 001-001)
-    and the box must already exist. tags is a comma-separated string."""
+    """Register a new part in an existing box. part_id is the part's id within
+    that box only (e.g. "1"), not combined with the box id. tags is a comma-separated string. Requires
+    the API key's owner to be an editor or admin."""
     token = _caller_token(ctx)
     return _api(
         "POST",
@@ -160,13 +156,15 @@ def register_part(
 @mcp.tool()
 def edit_part(
     part_id: str,
+    box_id: str,
     name: str = None,
     quantity: int = None,
     minimum_quantity: int = None,
     tags: str = None,
     ctx: Context = None,
 ) -> dict:
-    """Edit an existing part. Only fields you pass are changed."""
+    """Edit an existing part. Only fields you pass are changed. Requires the API
+    key's owner to be an editor or admin."""
     token = _caller_token(ctx)
     body = {
         k: v
@@ -178,7 +176,7 @@ def edit_part(
         }.items()
         if v is not None
     }
-    return _api("PATCH", f"/api/parts/{part_id}", token, json=body)
+    return _api("PATCH", f"/api/parts/{box_id}/{part_id}", token, json=body)
 
 
 @mcp.tool()
@@ -187,17 +185,38 @@ def list_boxes(ctx: Context = None) -> dict:
     token = _caller_token(ctx)
     return _api("GET", "/api/boxes", token)
 
+@mcp.tool(annotations = ToolAnnotations(destructiveHint=True))
+async def delete_part(part_id: str, box_id: str, ctx: Context = None) -> dict:
+    """Permanently delete a part (asks the user to confirm first). Requires
+    the API key's owner to be an editor or admin."""
+    token = _caller_token(ctx)
+    result = await ctx.elicit("You are going to delete a part, THIS CAN'T BE UNDONE! Are you certain?", schema=ConfirmDelete)
+    if result.action == "accept" and result.data.confirm:
+        return _api("POST", f"/api/parts/{box_id}/{part_id}/delete", token)
+    return {"cancelled": True}
+
+@mcp.tool(annotations = ToolAnnotations(destructiveHint=True))
+async def delete_box(box_id: str, ctx: Context = None) -> dict:
+    """Permanently delete an empty box (asks the user to confirm first).
+    Requires the API key's owner to be an editor or admin."""
+    token = _caller_token(ctx)
+    result = await ctx.elicit("You are going to delete a box, THIS CAN'T BE UNDONE! Are you certain?", schema=ConfirmDelete)
+    if result.action == "accept" and result.data.confirm:
+        return _api("POST", f"/api/boxes/{box_id}/delete", token)
+    return {"cancelled": True}
+
 
 @mcp.tool()
 def register_box(box_id: str, shelf: str, row: str, ctx: Context = None) -> dict:
-    """Register a new storage box."""
+    """Register a new storage box. Requires the API key's owner to be an editor or admin."""
     token = _caller_token(ctx)
     return _api("POST", "/api/boxes", token, json={"box_id": box_id, "shelf": shelf, "row": row})
 
 
 @mcp.tool()
 def edit_box(box_id: str, shelf: str = None, row: str = None, ctx: Context = None) -> dict:
-    """Edit an existing box's shelf/row. Only fields you pass are changed."""
+    """Edit an existing box's shelf/row. Only fields you pass are changed. Requires
+    the API key's owner to be an editor or admin."""
     token = _caller_token(ctx)
     body = {k: v for k, v in {"shelf": shelf, "row": row}.items() if v is not None}
     return _api("PATCH", f"/api/boxes/{box_id}", token, json=body)

@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Login{% endblock %}
 {% block content %}
-<article style="max-width: 400px; margin: 2rem auto;">
+<article class="login-card">
   <h2>Log in</h2>
   <form method="post">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
